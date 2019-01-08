@@ -1,0 +1,6 @@
+**/*.csv
+**/*.pdf
+**/*.html
+**/*.RData
+**/*.Rhistory
+**/*.rds
