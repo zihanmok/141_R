@@ -1,0 +1,196 @@
+data = readRDS('college_scorecard_2013.rds')
+#1.
+dim(data)
+num_of_obs <- nrow(data)
+head(data, 4)
+num_of_college <- sum(data$main_campus)
+#num_of_col <- length(unique(data$ope_id))
+#------------------------------------------------
+#2
+str(data)
+table(sapply(data, class))
+sapply(data, typeof)
+#apply function to each column
+#------------------------------------------------
+#3
+total_num_NA<-sum(is.na(data))
+NA_mat<-is.na(data)
+non_NA_mat<-!is.na(data)
+NA_counts<-colSums(is.na(data))
+sort(NA_counts, decreasing = TRUE)
+#which.max(NA_counts)
+#names(which.max(NA_counts))
+#summary(NA_mat)
+table(is.na(data$med_family_inc), data$ownership)
+table(is.na(data$avg_sat),data$open_admissions)
+#------------------------------------------------
+#4
+table(factor(data$ownership=="Public",
+             labels = c("Public", "Private")))
+prop.table(table(data$highest_degree,data$ownership), margin = 1)
+#prop.table only applies to array. margin 2 is column proportion
+data$IsPublic<-factor(data$ownership=="Public",
+                              labels=c("Private","Public"))
+#as.factor return TRUE or FALSE.
+prop<-prop.table(table(data$highest_degree, data$ownership), margin = 2)
+prop
+mosaicplot(prop,shade = TRUE,color = F,
+           main = "Highest Degree Per College Type",
+           xlab = "Highest Degree Awarded", ylab = "Ownership", las=2)
+#?mosaicplot
+#------------------------------------------------
+#5
+UG_mean<-mean(data$undergrad_pop, na.rm = TRUE)
+UG_med<-median(data$undergrad_pop, na.rm=TRUE)
+quantile(data$undergrad_pop, na.rm = TRUE, probs = seq(0,1,0.1))
+plot(density(data$undergrad_pop, na.rm = TRUE),
+     main="undergrad population distribution",
+     xlim=c(0,170000))
+abline(v = UG_mean, col = "red", lwd = 1)
+abline(v = UG_med, col = "green", lwd = 1)
+legend("topright",legend=c('mean','median'),
+       col=c("red","green"),pch="-")
+boxplot(data$undergrad_pop)
+summary(data$undergrad_pop)
+#------------------------------------------------
+#6
+populous_states<-data[data$state%in%c("CA","TX","NY","IL","FL"),]
+fstate<-factor(populous_states$state)
+unique(populous_states$state)
+boxplot(tuition~fstate, data = populous_states,na.rm=TRUE,
+        main = "Tuition distribution w.r.t states",
+        xlab = "States", ylab = "Tuition")
+#-----------------------------------------------
+#7
+#a.
+college_sat<-data[,c("name","avg_sat")]
+highest_sat<-college_sat$avg_sat
+college_sat[which.max(highest_sat),]
+#b
+college_UG_pop <- data[, c("name","undergrad_pop","open_admissions")]
+largest_UGpop<-college_UG_pop$undergrad_pop
+college_UG_pop[which.max(largest_UGpop),]
+#c
+fam_income<-data[,c("zip","avg_family_inc","ownership")]
+P_fam_income<-subset(fam_income, ownership == "Public")
+lowest_fminc<-which.min(P_fam_income$avg_family_inc)
+P_fam_income[lowest_fminc,]
+#d
+which.max(largest_UGpop)==which.max(data$grad_pop)
+data[which.max(data$grad_pop),"undergrad_pop"]
+#------------------------------------------------
+#8
+#a
+data2<-subset(data, ownership=="Public"&primary_degree=="Bachelor")
+model1<-lm(data2$spend_per_student~data2$revenue_per_student)
+summary(model1)
+plot(data2$spend_per_student, data2$revenue_per_student,
+     xlab = "spend_per_student", ylab = "revenue_per_student",
+     main = "revenue against spend",las = 1)
+abline(model1, col="red", lwd = 2)
+#b
+per_net_income<-data2$revenue_per_student-data2$spend_per_student
+total_student_pop<-data2$undergrad_pop+data2$grad_pop
+data2$total_net_income<-per_net_income*total_student_pop
+data22<-data2[,c("name","total_net_income")]
+head(data22[order(data22$total_net_income,decreasing = T),],5)
+#------------------------------------------------
+#9
+#part A
+data_group1<-subset(data, data$admission<0.6&data$avg_sat>1200)
+data_group2<-subset(data, data$admission>=0.6&data$avg_sat<=1200)
+par(mfrow = c(1,2))
+plot(data_group1$avg_sat, data_group1$admission,
+     main = "group 1", xlab = "avg_sat",
+     ylab = "admission rate")
+plot(data_group2$avg_sat, data_group2$admission,
+     main = "group 2", xlab = "avg_sat",
+     ylab = "admission rate")
+r_group2<-cor(data_group2$avg_sat, data_group2$admission)
+r_group1<-cor(data_group1$avg_sat, data_group1$admission)
+
+#PART B
+#a)
+library(ggplot2)
+#ggplot(data,aes(med_10yr_salary,fill=admission>=0.6&data$avg_sat<=1200))+geom_density()
+#plot1<-ggplot(data_group1, aes(med_10yr_salary))+
+#  geom_density(fill="red", alpha = 0.5)+ggtitle("Group1")
+#plot2<-ggplot(data_group2, aes(med_10yr_salary))+
+#  geom_density(fill="blue", alpha = 0.5)+ggtitle("Group2")
+
+par(mfrow = c(1,2))
+boxplot(data_group1$med_10yr_salary, na.rm = TRUE,
+             xlab="med_10yr_salary", main = "group1")
+boxplot(data_group2$med_10yr_salary,na.rm = TRUE,
+     xlab="med_10yr_salary", main = "group2")
+
+#b)
+data_group1$percen_white_asian1 <- data_group1$race_white+data_group1$race_asian
+data_group2$percen_white_asian2 <- data_group2$race_white+data_group2$race_asian
+par(mfrow = c(1,2))
+boxplot(data_group1$percen_white_asian1, na.rm = TRUE,
+     xlab="percen_white_asian", main = "group1")
+boxplot(data_group2$percen_white_asian2,na.rm = TRUE,
+     xlab="percen_white_asian", main = "group2")
+#c)
+data_group1$percent_grad1<-data_group1$grad_pop/(data_group1$grad_pop+
+  data_group1$undergrad_pop)
+data_group2$percent_grad2<-data_group2$grad_pop/(data_group2$grad_pop+
+  data_group2$undergrad_pop)
+par(mfrow = c(1,2))
+boxplot(data_group1$percent_grad1, na.rm = TRUE,
+        xlab="percent_grad_enrolled", main = "group1")
+boxplot(data_group2$percent_grad2, na.rm = TRUE,
+        xlab="percent_grad_enrolled", main = "group2")
+#PART C
+#a)
+num_open_ad1<-sum(data_group1$open_admissions)
+num_open_ad2<-sum(data_group2$open_admissions)
+#b)
+num_main_campus1<-sum(data_group1$main_campus)
+num_main_campus2<-sum(data_group2$main_campus)
+percentage2<-num_main_campus2/830
+percentage1<-num_main_campus1/136
+#c)
+tbl1<-table(data_group1$ownership)
+tbl2<-table(data_group2$ownership)
+percent1<-tbl1/136
+percent2<-tbl2/830
+par(mfrow=c(1,2))
+barplot(percent1, main = "group1", xlab = "ownership",
+        ylab = "percentage")
+barplot(percent2, main = "group2", xlab = "ownership",
+        ylab="percentage")
+#d)
+tbl3<-table(data_group1$branches)
+tbl4<-table(data_group2$branches)
+percent3<-tbl3/136
+percent4<-tbl4/830
+barplot(percent3, main = "group1", xlab = "number of branch",
+        ylab = "percentage")
+barplot(percent4, main = "group2", xlab = "number of branch",
+        ylab="percentage")
+
+#10
+#part A
+par(mfrow=c(1,2))
+plot(data$avg_family_inc,data$avg_10yr_salary,
+     main = "fam_inc VS 10yr_salary",
+     xlab="avg_10yr_salary",ylab="avg_family_inc")
+fit1<-lm(data$avg_10yr_salary~data$avg_family_inc)
+abline(fit1, col = "green", lwd=2)
+
+data10 <- subset(data, avg_family_inc<=75000)
+plot(data10$avg_family_inc,data10$avg_10yr_salary,
+     main = "fam_inc VS 10yr_salary",
+     xlab="avg_10yr_salary",ylab="avg_family_inc")
+fit2<-lm(data10$avg_10yr_salary~data10$avg_family_inc)
+abline(fit2, col = "red", lwd = 2)
+summary(fit1)
+summary(fit2)
+
+#PART B
+fit3<-lm(data$avg_10yr_salary~data$avg_family_inc+data$primary_degree)
+abline(fit3, col = "blue", lwd=2)
+levels(data$primary_degree)
+

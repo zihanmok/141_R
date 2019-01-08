@@ -1,0 +1,174 @@
+---
+title: "STA 141A HW2"
+author: "Zihan Mo 914998952"
+date: "April 29, 2018"
+output:
+  html_document: default
+  word_document: default
+---
+```{r echo=FALSE}
+data<-readRDS('housing.rds')
+```
+```{r echo=FALSE, message=FALSE}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(MASS)
+library(maps)
+library(treemap)
+```
+Q1 Justified by code in the appendix
+
+Q2
+The timespan of the housing sales cover from 2003-04-27 to 2006-06-04;
+The timespan of the construction year of houses cover from 1885 to 2005.
+
+Q3
+```{r echo = FALSE}
+data<-mutate(data,yr=year(data$date),mon=month(data$date))
+ggplot(data=data, aes(y=price,x=factor(mon),group=yr,color=factor(yr)))+
+  stat_summary(fun.y = "mean", geom = "line")+
+  xlab("Month")+ylab("Avg Housing Price")+labs(color="year")+
+  ggtitle("Avg Price Over Time")+theme_bw()
+ggplot(data=data, aes(mon))+
+  scale_x_continuous(breaks=seq(1,12,1))+
+  geom_histogram(aes(fill=factor(yr)),binwidth = 0.5)+
+  stat_bin(binwidth = 0.5, geom="text", colour="black", size = 3.5, 
+           aes(label=..count.., group = yr), vjust = 1)+
+  ylab("Sales")+ggtitle("Sales Over Time")+
+  scale_fill_discrete(name="Year")
+```
+
+Q4
+```{r echo=FALSE}
+data$county<-sub("county","County",data$county)
+data$county<-sub("San Franciscoe","San Francisco",data$county)
+data$county<-sub("Alpine","San Francisco",data$county)
+data$county<-as.factor(data$county)
+dat4<-filter(data, year(date)%in%c("2005","2004","2003"))
+dat4$br<-cut(as.numeric(dat4$br), breaks = c(0,1,2,3,28),
+             labels=c("1","2","3","4+"))
+dat4$yr<-as.factor(year(dat4$date))
+ggplot(data = na.omit(dat4), aes(y=price,x=yr,group=br,color = br))+
+  stat_summary(fun.y = "mean", geom = "line")+
+  facet_wrap(~county)+
+  theme_bw()+xlab("year")+ylab("avg_price")+
+  ggtitle("Avg_price w.r.t Year/Br/County")+theme_classic()
+```
+
+Q5
+
+Only Vallejo city has sales in more than one county, which are Napa County and Solano County.
+
+Q6
+
+After taking out extreme outliers, like price equals zero and the building size larger than 10000, we have plots. Based on the plots below, the linear regression model seems provide a good fit to the data. But the QQ-plot and the residuals plot imply the nomality assumption isn't met and the variance of residual is not constant.
+```{r echo=FALSE}
+dat6<-subset(data,price>0&price<6000000&bsqft<10000)
+par(mfrow=c(1,3))
+plot(dat6$bsqft, dat6$price,xlab = "bsqft",ylab="price",
+     main="scatter plot")
+model1<-lm(dat6$price~dat6$bsqft)
+abline(model1,col="red",lwd=2)
+plot(model1,which=2)
+plot(model1,which=1)
+```
+
+Based on the QQ-plot below, after BoxCox transformation, the QQ-plot roughly follows a straight line.
+```{r echo=FALSE}
+model2<-lm(dat6$price^(-0.061)~dat6$bsqft)
+qqnorm(model2$residuals)
+```
+
+Q7
+```{r}
+model3<-lm(data$price~data$bsqft+data$lsqft)
+model3_est<-coef(summary(model3))[,1]
+model3_se<-coef(summary(model3))[,2]
+t_star<-(model3_est[2]-model3_est[3])/(model3_se[2])
+critical_val<-qt(0.99,19997)
+t_star>=critical_val
+```
+H Null:; H1:;
+Using t test, because t_star is greater than critical_val, conclude null hypothesis.
+
+Q8
+```{r echo=FALSE}
+plot(1, type="n", xlab="bsqft", ylab="price", 
+     xlim=range(data$bsqft,na.rm = TRUE),
+     ylim=range(data$price,na.rm = TRUE),
+     main="regression models")
+split_county<-split(data,data$county)
+models<-lapply(split_county,function(x)lm(price~bsqft,x))
+regression_lines<-sapply(1:9, function(i) abline(coef(models[[i]]), col=i))
+legend("bottomright",names(table(data$county)),
+       col=1:9,lty=rep(1,9),cex = 0.7)
+```
+
+It's obviouse that the simple regression lines with respect to different county are not parallel. Therefore, we can conclude the regression lines depend on county.
+
+Q9
+```{r echo=F}
+sales<-aggregate(price~city+county,data,length)
+avg_price<-aggregate(price~city+county,data,mean)
+colnames(sales)[3]<-"sales"
+colnames(avg_price)[3]<-"avg_price"
+price_sales<-merge(sales,avg_price,by=c("city","county"))
+price_sales<-price_sales%>%
+  group_by(county)%>%
+  top_n(n=3L,wt=sales)
+treemap(price_sales,
+        index = c("county","city"),
+        vColor="sales",
+        vSize ="avg_price" ,
+        type="value",
+        title='top3 sales with avg_price in differetn county',
+        align.labels=list(c("left","top"),
+                          c("center","center")),
+        format.legend = list(scientific = FALSE, big.mark = " "))
+```
+
+Q10
+```{r echo=F}
+SFdata<-subset(data,data$city=="San Francisco")
+SFdata$long2<-round(SFdata$long,2)
+SFdata$lat2<-round(SFdata$lat,2)
+#factorize the long,lat ranges,form cells.
+long2_range<-range(SFdata$long2,na.rm=TRUE)
+long_seq<-seq(long2_range[1],long2_range[2],.01)
+SFdata$longF<-factor(SFdata$long2,levels=long_seq)
+
+lat2_range<-range(SFdata$lat2,na.rm = T)
+lat_seq<-seq(lat2_range[1],lat2_range[2],.01)
+SFdata$latF<-factor(SFdata$lat2,levels=lat_seq)
+SF_agg<-aggregate(price~latF+longF,SFdata,
+                  function(x)c(mean(x),length(x)),drop=FALSE)
+
+SFhouse_prices<-matrix(SF_agg$price[,1],
+                     nlevels(SFdata$longF),
+                     nlevels(SFdata$latF),byrow=TRUE)
+SFhouse_prices[SFhouse_prices==0]<-NA
+SFhouse_sales<-matrix(SF_agg$price[,2],
+                     nlevels(SFdata$longF),
+                     nlevels(SFdata$latF),byrow=TRUE)
+SFhouse_sales[SFhouse_sales==0]<-NA
+
+sf_border=map('county','california,san francisco',plot = F)
+image(x=long_seq,y=lat_seq,z=SFhouse_prices,xlim=c(-122.56,-122.3),
+      ylim = c(37.7,37.82),
+      xlab = "Longitude", ylab = "Latitude", 
+      main = "SF Heatmap of Average Housing Prices")
+lines(sf_border$x,sf_border$y)
+
+
+image(x=long_seq,y=lat_seq,z=SFhouse_sales,xlim=c(-122.56,-122.3),
+      ylim = c(37.7,37.82),
+      xlab = "Longitude", ylab = "Latitude", 
+      main = "SF Heatmap of Housing Sales")
+lines(sf_border$x,sf_border$y)
+```
+
+
+
+
+
